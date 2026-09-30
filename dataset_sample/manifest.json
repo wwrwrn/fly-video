@@ -1,0 +1,536 @@
+{
+  "source_video": "F:\\fly video\\20260817_202618.mp4",
+  "roi_snapshot": {
+    "tube_1": [
+      264,
+      381,
+      483,
+      978
+    ],
+    "tube_2": [
+      498,
+      381,
+      702,
+      975
+    ],
+    "tube_3": [
+      747,
+      364,
+      951,
+      965
+    ],
+    "tube_4": [
+      984,
+      372,
+      1179,
+      947
+    ],
+    "tube_5": [
+      1204,
+      367,
+      1388,
+      942
+    ],
+    "tube_6": [
+      1434,
+      361,
+      1611,
+      936
+    ]
+  },
+  "activity_region_confirmation": {
+    "roi_sha256": "27d6db3f148b5cf01789ac75ef036f2de66e6d45f5947a92d3db8ff09499a10e",
+    "basis": "用户确认：未框入的上部为棉花，果蝇无法到达；使用当前 ROI 作为活动区域。"
+  },
+  "frames": [
+    0,
+    80,
+    160,
+    240,
+    320
+  ],
+  "candidate_count": 30,
+  "note": "候选图不代表标注完成；labels 中的 txt 仅在人工保存完整标注后生成。",
+  "images": [
+    {
+      "image": "images/frame_000000_tube_1.png",
+      "label": "labels/frame_000000_tube_1.txt",
+      "frame_index": 0,
+      "tube": "tube_1",
+      "roi_xyxy": [
+        264,
+        381,
+        483,
+        978
+      ],
+      "image_size": [
+        219,
+        597
+      ]
+    },
+    {
+      "image": "images/frame_000000_tube_2.png",
+      "label": "labels/frame_000000_tube_2.txt",
+      "frame_index": 0,
+      "tube": "tube_2",
+      "roi_xyxy": [
+        498,
+        381,
+        702,
+        975
+      ],
+      "image_size": [
+        204,
+        594
+      ]
+    },
+    {
+      "image": "images/frame_000000_tube_3.png",
+      "label": "labels/frame_000000_tube_3.txt",
+      "frame_index": 0,
+      "tube": "tube_3",
+      "roi_xyxy": [
+        747,
+        364,
+        951,
+        965
+      ],
+      "image_size": [
+        204,
+        601
+      ]
+    },
+    {
+      "image": "images/frame_000000_tube_4.png",
+      "label": "labels/frame_000000_tube_4.txt",
+      "frame_index": 0,
+      "tube": "tube_4",
+      "roi_xyxy": [
+        984,
+        372,
+        1179,
+        947
+      ],
+      "image_size": [
+        195,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000000_tube_5.png",
+      "label": "labels/frame_000000_tube_5.txt",
+      "frame_index": 0,
+      "tube": "tube_5",
+      "roi_xyxy": [
+        1204,
+        367,
+        1388,
+        942
+      ],
+      "image_size": [
+        184,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000000_tube_6.png",
+      "label": "labels/frame_000000_tube_6.txt",
+      "frame_index": 0,
+      "tube": "tube_6",
+      "roi_xyxy": [
+        1434,
+        361,
+        1611,
+        936
+      ],
+      "image_size": [
+        177,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_1.png",
+      "label": "labels/frame_000080_tube_1.txt",
+      "frame_index": 80,
+      "tube": "tube_1",
+      "roi_xyxy": [
+        264,
+        381,
+        483,
+        978
+      ],
+      "image_size": [
+        219,
+        597
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_2.png",
+      "label": "labels/frame_000080_tube_2.txt",
+      "frame_index": 80,
+      "tube": "tube_2",
+      "roi_xyxy": [
+        498,
+        381,
+        702,
+        975
+      ],
+      "image_size": [
+        204,
+        594
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_3.png",
+      "label": "labels/frame_000080_tube_3.txt",
+      "frame_index": 80,
+      "tube": "tube_3",
+      "roi_xyxy": [
+        747,
+        364,
+        951,
+        965
+      ],
+      "image_size": [
+        204,
+        601
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_4.png",
+      "label": "labels/frame_000080_tube_4.txt",
+      "frame_index": 80,
+      "tube": "tube_4",
+      "roi_xyxy": [
+        984,
+        372,
+        1179,
+        947
+      ],
+      "image_size": [
+        195,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_5.png",
+      "label": "labels/frame_000080_tube_5.txt",
+      "frame_index": 80,
+      "tube": "tube_5",
+      "roi_xyxy": [
+        1204,
+        367,
+        1388,
+        942
+      ],
+      "image_size": [
+        184,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000080_tube_6.png",
+      "label": "labels/frame_000080_tube_6.txt",
+      "frame_index": 80,
+      "tube": "tube_6",
+      "roi_xyxy": [
+        1434,
+        361,
+        1611,
+        936
+      ],
+      "image_size": [
+        177,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_1.png",
+      "label": "labels/frame_000160_tube_1.txt",
+      "frame_index": 160,
+      "tube": "tube_1",
+      "roi_xyxy": [
+        264,
+        381,
+        483,
+        978
+      ],
+      "image_size": [
+        219,
+        597
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_2.png",
+      "label": "labels/frame_000160_tube_2.txt",
+      "frame_index": 160,
+      "tube": "tube_2",
+      "roi_xyxy": [
+        498,
+        381,
+        702,
+        975
+      ],
+      "image_size": [
+        204,
+        594
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_3.png",
+      "label": "labels/frame_000160_tube_3.txt",
+      "frame_index": 160,
+      "tube": "tube_3",
+      "roi_xyxy": [
+        747,
+        364,
+        951,
+        965
+      ],
+      "image_size": [
+        204,
+        601
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_4.png",
+      "label": "labels/frame_000160_tube_4.txt",
+      "frame_index": 160,
+      "tube": "tube_4",
+      "roi_xyxy": [
+        984,
+        372,
+        1179,
+        947
+      ],
+      "image_size": [
+        195,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_5.png",
+      "label": "labels/frame_000160_tube_5.txt",
+      "frame_index": 160,
+      "tube": "tube_5",
+      "roi_xyxy": [
+        1204,
+        367,
+        1388,
+        942
+      ],
+      "image_size": [
+        184,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000160_tube_6.png",
+      "label": "labels/frame_000160_tube_6.txt",
+      "frame_index": 160,
+      "tube": "tube_6",
+      "roi_xyxy": [
+        1434,
+        361,
+        1611,
+        936
+      ],
+      "image_size": [
+        177,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_1.png",
+      "label": "labels/frame_000240_tube_1.txt",
+      "frame_index": 240,
+      "tube": "tube_1",
+      "roi_xyxy": [
+        264,
+        381,
+        483,
+        978
+      ],
+      "image_size": [
+        219,
+        597
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_2.png",
+      "label": "labels/frame_000240_tube_2.txt",
+      "frame_index": 240,
+      "tube": "tube_2",
+      "roi_xyxy": [
+        498,
+        381,
+        702,
+        975
+      ],
+      "image_size": [
+        204,
+        594
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_3.png",
+      "label": "labels/frame_000240_tube_3.txt",
+      "frame_index": 240,
+      "tube": "tube_3",
+      "roi_xyxy": [
+        747,
+        364,
+        951,
+        965
+      ],
+      "image_size": [
+        204,
+        601
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_4.png",
+      "label": "labels/frame_000240_tube_4.txt",
+      "frame_index": 240,
+      "tube": "tube_4",
+      "roi_xyxy": [
+        984,
+        372,
+        1179,
+        947
+      ],
+      "image_size": [
+        195,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_5.png",
+      "label": "labels/frame_000240_tube_5.txt",
+      "frame_index": 240,
+      "tube": "tube_5",
+      "roi_xyxy": [
+        1204,
+        367,
+        1388,
+        942
+      ],
+      "image_size": [
+        184,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000240_tube_6.png",
+      "label": "labels/frame_000240_tube_6.txt",
+      "frame_index": 240,
+      "tube": "tube_6",
+      "roi_xyxy": [
+        1434,
+        361,
+        1611,
+        936
+      ],
+      "image_size": [
+        177,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_1.png",
+      "label": "labels/frame_000320_tube_1.txt",
+      "frame_index": 320,
+      "tube": "tube_1",
+      "roi_xyxy": [
+        264,
+        381,
+        483,
+        978
+      ],
+      "image_size": [
+        219,
+        597
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_2.png",
+      "label": "labels/frame_000320_tube_2.txt",
+      "frame_index": 320,
+      "tube": "tube_2",
+      "roi_xyxy": [
+        498,
+        381,
+        702,
+        975
+      ],
+      "image_size": [
+        204,
+        594
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_3.png",
+      "label": "labels/frame_000320_tube_3.txt",
+      "frame_index": 320,
+      "tube": "tube_3",
+      "roi_xyxy": [
+        747,
+        364,
+        951,
+        965
+      ],
+      "image_size": [
+        204,
+        601
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_4.png",
+      "label": "labels/frame_000320_tube_4.txt",
+      "frame_index": 320,
+      "tube": "tube_4",
+      "roi_xyxy": [
+        984,
+        372,
+        1179,
+        947
+      ],
+      "image_size": [
+        195,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_5.png",
+      "label": "labels/frame_000320_tube_5.txt",
+      "frame_index": 320,
+      "tube": "tube_5",
+      "roi_xyxy": [
+        1204,
+        367,
+        1388,
+        942
+      ],
+      "image_size": [
+        184,
+        575
+      ]
+    },
+    {
+      "image": "images/frame_000320_tube_6.png",
+      "label": "labels/frame_000320_tube_6.txt",
+      "frame_index": 320,
+      "tube": "tube_6",
+      "roi_xyxy": [
+        1434,
+        361,
+        1611,
+        936
+      ],
+      "image_size": [
+        177,
+        575
+      ]
+    }
+  ]
+}

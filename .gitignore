@@ -1,0 +1,12 @@
+.venv/
+.venv-train/
+models/
+runs/
+.ultralytics/
+Ultralytics/
+weights/
+__pycache__/
+*.py[cod]
+outputs/
+*.mp4
+*.MP4

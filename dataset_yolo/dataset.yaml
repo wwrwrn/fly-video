@@ -1,0 +1,6 @@
+# 同一视频的教学实验，验证指标不代表跨视频泛化能力。
+path: "F:/fly video/dataset_yolo"
+train: images/train
+val: images/val
+names:
+  0: fly

@@ -1,0 +1,7 @@
+# 仅展示格式，不是可直接训练的配置；本阶段不建立训练/验证划分。
+# 将来标注审核完成后，再创建互不重叠的 train.txt 和 val.txt。
+path: "F:/fly video/dataset_sample"
+train: train.txt
+val: val.txt
+names:
+  0: fly

@@ -1,0 +1,14 @@
+{
+  "image_size": [
+    1920,
+    1080
+  ],
+  "source_video": "F:\\fly video\\20260817_202618.mp4",
+  "frame_index": 100,
+  "origin": "mouse_selection",
+  "coordinate_convention": "[x1, y1, x2, y2], exclusive x2/y2",
+  "activity_region_confirmation": {
+    "roi_sha256": "27d6db3f148b5cf01789ac75ef036f2de66e6d45f5947a92d3db8ff09499a10e",
+    "basis": "用户确认：未框入的上部为棉花，果蝇无法到达；使用当前 ROI 作为活动区域。"
+  }
+}

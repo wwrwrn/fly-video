@@ -1,0 +1,8 @@
+# 先按 README 从 PyTorch 官方 cu128 索引安装 torch 和 torchvision。
+torch==2.9.1+cu128
+torchvision==0.24.1+cu128
+ultralytics==8.4.143
+opencv-python==4.14.0.94
+numpy==2.4.6
+imageio-ffmpeg==0.6.0
+lap==0.5.13
