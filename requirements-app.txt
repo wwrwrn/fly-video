@@ -1,0 +1,5 @@
+# PyTorch / torchvision are installed separately by setup_env.py.
+ultralytics==8.4.143
+opencv-python==4.14.0.94
+numpy==2.4.6
+imageio-ffmpeg==0.6.0

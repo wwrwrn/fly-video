@@ -65,7 +65,26 @@ def annotate(frame, geometry, registration, states, trackers, index, time_sec):
     return result
 
 
-def run(video, weights, output, limit=None):
+def resolve_device(requested, torch):
+    """默认优先使用可实际运算的CUDA；没有可用GPU时允许CPU离线运行。"""
+    if requested == "cpu":
+        return "cpu"
+    if torch.cuda.is_available() and torch.cuda.device_count() > 0:
+        try:
+            probe = torch.ones((16, 16), device="cuda:0")
+            _ = probe @ probe
+            torch.cuda.synchronize()
+            return "0"
+        except RuntimeError as exc:
+            if requested == "0":
+                raise RuntimeError(f"显式指定的CUDA无法运算：{exc}") from exc
+            print("CUDA运行检查未通过，本次改用CPU（速度较慢）。", flush=True)
+    elif requested == "0":
+        raise RuntimeError("显式指定了GPU，但CUDA不可用。请使用--device auto或cpu。")
+    return "cpu"
+
+
+def run(video, weights, output, limit=None, device="auto"):
     import torch
     from ultralytics import YOLO
 
@@ -74,8 +93,8 @@ def run(video, weights, output, limit=None):
         raise FileNotFoundError(weights)
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"输出目录非空：{output}")
-    if not torch.cuda.is_available():
-        raise RuntimeError("CUDA不可用，停止并报告，不静默换成CPU。")
+    selected_device = resolve_device(device, torch)
+    print(f"运行设备：{'CUDA:0' if selected_device == '0' else 'CPU（较慢）'}", flush=True)
     torch.set_num_threads(4)
     cv2.setNumThreads(2)
     reference, geometry = auto_calibrate(video)
@@ -138,7 +157,7 @@ def run(video, weights, output, limit=None):
                         raw = []
                         if trackers[tube].crossing is None:
                             result = model.predict(frame[ry1:ry2, rx1:rx2], conf=0.1, iou=0.45,
-                                                   imgsz=640, device=0, rect=True, max_det=20, verbose=False, save=False)[0]
+                                                   imgsz=640, device=selected_device, rect=True, max_det=20, verbose=False, save=False)[0]
                             for det_index, values in enumerate(result.boxes.data.detach().cpu().tolist(), 1):
                                 ax, ay, bx, by, confidence, cls = values
                                 if int(cls) != 0:
@@ -196,6 +215,7 @@ def run(video, weights, output, limit=None):
               "finish_line_timing_quality": geometry["finish_line"]["timing_quality"],
               "registration_uncertain_frames": registration_failures, "invalid_pts_fallback_frames": decoded_pts_invalid,
               "results": results, "processing_seconds": elapsed, "processing_fps": processed / elapsed,
+              "device": selected_device, "cuda_used": selected_device == "0",
               "rules": {"one_identity_per_tube": True, "time_zero": "video frame 0", "distance_cm": 5.5,
                         "first_crossing": "bbox center from below to above background line; three consecutive observations confirm",
                         "missing_frames": "no synthetic observation or interpolated crossing",
@@ -210,9 +230,10 @@ if __name__ == "__main__":
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("video", type=Path)
-    parser.add_argument("--weights", type=Path, default=ROOT / "runs/detect/fly_yolo26n_teaching/weights/best.pt")
+    parser.add_argument("--weights", type=Path, default=ROOT / "assets/fly_yolo26n_best.pt")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, help="仅用于诊断，默认读取所有可解码帧")
+    parser.add_argument("--device", choices=["auto", "0", "cpu"], default="auto")
     args = parser.parse_args()
     destination = args.output or ROOT / "outputs/single_fly_analysis" / args.video.stem
-    run(args.video, args.weights, destination, args.limit)
+    run(args.video, args.weights, destination, args.limit, args.device)

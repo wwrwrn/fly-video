@@ -1,0 +1,10 @@
+{
+  "filename": "fly_yolo26n_best.pt",
+  "sha256": "69d0d04419b2948cb27d9bd363f41b6f141c0d6aae06609c732eee01e8a604e7",
+  "size_bytes": 5352773,
+  "model": "YOLO26n Detection",
+  "classes": {
+    "0": "fly"
+  },
+  "description": "六管果蝇教学微调模型；候选速度结果仍需要人工复核。"
+}

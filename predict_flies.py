@@ -39,14 +39,16 @@ def predict_one(model, image_path, output_dir, conf=0.25, device="0"):
 
 
 def main():
+    import torch
     from ultralytics import YOLO
+    from analyze_single_fly_video import resolve_device
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("image", type=Path)
-    parser.add_argument("--weights", type=Path, default=ROOT / "runs/detect/fly_yolo26n_teaching/weights/best.pt")
+    parser.add_argument("--weights", type=Path, default=ROOT / "assets/fly_yolo26n_best.pt")
     parser.add_argument("--output-dir", type=Path, default=ROOT / "outputs/single_predictions")
     parser.add_argument("--conf", type=float, default=0.25)
-    parser.add_argument("--device", default="0", help="GPU 为 0，无 GPU 时可明确指定 cpu")
+    parser.add_argument("--device", choices=["auto", "0", "cpu"], default="auto")
     args = parser.parse_args()
     if not 0 <= args.conf <= 1:
         parser.error("--conf 必须在 0～1 之间。")
@@ -55,7 +57,7 @@ def main():
     model = YOLO(str(args.weights), task="detect")
     if model.names != {0: "fly"}:
         parser.error("模型类别必须恰好为 {0: fly}。")
-    payload = predict_one(model, args.image, args.output_dir, args.conf, args.device)
+    payload = predict_one(model, args.image, args.output_dir, args.conf, resolve_device(args.device, torch))
     print(json.dumps(payload, ensure_ascii=False, indent=2))
 
 

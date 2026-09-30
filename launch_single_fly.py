@@ -21,7 +21,7 @@ def choose_video():
         return filedialog.askopenfilename(
             parent=window,
             title="选择六管果蝇实验视频",
-            initialdir=str(ROOT / "video"),
+            initialdir=str(ROOT / "video" if (ROOT / "video").is_dir() else ROOT),
             filetypes=[("MP4 视频", "*.mp4"), ("全部文件", "*.*")],
         )
     finally:
@@ -43,7 +43,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("video", nargs="?", help="MP4 路径；不填写时弹出文件选择框")
     args = parser.parse_args(argv)
-    selected = args.video if args.video is not None else choose_video()
+    try:
+        selected = args.video if args.video is not None else choose_video()
+    except Exception as exc:
+        print(f"无法打开文件选择窗口：{exc}。可把视频拖到run_single_fly.cmd，或在命令行传入路径。", file=sys.stderr)
+        return 2
     if not selected:
         print("已取消选择，没有运行分析。", flush=True)
         return 2
@@ -56,7 +60,10 @@ def main(argv=None):
         return 2
     python = ROOT / ".venv-train" / "Scripts" / "python.exe"
     if not python.is_file():
-        print(f"错误：训练环境不存在：{python}", file=sys.stderr, flush=True)
+        print("首次使用请先双击 setup_env.cmd 安装环境。", file=sys.stderr, flush=True)
+        return 2
+    if not (ROOT / "assets/fly_yolo26n_best.pt").is_file():
+        print("下载的项目缺少 assets/fly_yolo26n_best.pt，请重新下载完整仓库。", file=sys.stderr, flush=True)
         return 2
     output = next_output(video)
     print(f"输入视频：{video}", flush=True)

@@ -1,2 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Keep batch files as committed CRLF bytes, including GitHub ZIP downloads.
+*.cmd -text whitespace=cr-at-eol
+*.pt -text -diff
