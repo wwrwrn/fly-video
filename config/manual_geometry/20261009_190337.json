@@ -1,0 +1,94 @@
+{
+  "image_size": [
+    1920,
+    1080
+  ],
+  "tubes": {
+    "tube_1": {
+      "roi": [
+        410,
+        335,
+        596,
+        785
+      ],
+      "bottom_y_reference": 762,
+      "axis_x_reference": 500.0,
+      "finish_y_at_axis": 418.3888888888889,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_2": {
+      "roi": [
+        602,
+        330,
+        798,
+        773
+      ],
+      "bottom_y_reference": 750,
+      "axis_x_reference": 698.0,
+      "finish_y_at_axis": 413.25555555555553,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_3": {
+      "roi": [
+        804,
+        324,
+        987,
+        791
+      ],
+      "bottom_y_reference": 768,
+      "axis_x_reference": 905.0,
+      "finish_y_at_axis": 407.8888888888889,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_4": {
+      "roi": [
+        993,
+        320,
+        1162,
+        758
+      ],
+      "bottom_y_reference": 735,
+      "axis_x_reference": 1075.0,
+      "finish_y_at_axis": 403.48148148148147,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_5": {
+      "roi": [
+        1168,
+        315,
+        1335,
+        741
+      ],
+      "bottom_y_reference": 718,
+      "axis_x_reference": 1255.0,
+      "finish_y_at_axis": 398.8148148148148,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_6": {
+      "roi": [
+        1341,
+        311,
+        1512,
+        731
+      ],
+      "bottom_y_reference": 708,
+      "axis_x_reference": 1422.0,
+      "finish_y_at_axis": 394.4851851851852,
+      "bottom_edge_strength": 0.0
+    }
+  },
+  "tube_pitch_pixels": 180.0,
+  "pixels_per_cm": 60.751178451178454,
+  "estimated_bottoms": [],
+  "reference_frame": 30,
+  "finish_line": {
+    "slope": -0.025925925925925925,
+    "intercept": 431.35185185185185,
+    "fit_rmse_pixels": 0.0,
+    "support_bins": 2,
+    "support_span_fraction": 0.703125,
+    "timing_quality": "ok",
+    "definition": "人工点选的背景深色横线。"
+  },
+  "calibration_method": "人工核对：坐标由画面读取"
+}

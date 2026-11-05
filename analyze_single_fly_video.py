@@ -12,21 +12,29 @@ import time
 import cv2
 import numpy as np
 
-from detect_full_video import ROOT, open_encoder
-from single_fly_geometry import TranslationRegistration, auto_calibrate, draw_geometry
+from app_paths import DATA, FROZEN, RESOURCE
+from single_fly_geometry import MIN_ROI_HEIGHT, MIN_ROI_WIDTH, TranslationRegistration, auto_calibrate, draw_geometry, load_manual_geometry
 from single_fly_tracker import SingleFlyTracker
-from video_utils import open_video, save_frame, video_info
+from video_utils import open_encoder, open_video, save_frame, video_info
+
+(DATA / ".ultralytics").mkdir(parents=True, exist_ok=True)
+os.environ.setdefault("YOLO_CONFIG_DIR", str(DATA / ".ultralytics"))
+if FROZEN:
+    # 打包版不联网、不自动安装依赖。
+    os.environ.setdefault("YOLO_OFFLINE", "true")
+    os.environ.setdefault("YOLO_AUTOINSTALL", "false")
+os.environ.setdefault("YOLO_AUTOINSTALL", "false")
 
 
 def fmt(row):
     return {key: f"{value:.9f}" if isinstance(value, float) else value for key, value in row.items()}
 
 
-def annotate(frame, geometry, registration, states, trackers, index, time_sec):
+def annotate(frame, geometry, registration, states, trackers, index, time_sec, distance_cm):
     dx, dy = registration
     result = draw_geometry(frame, geometry, dx, dy)
     cv2.rectangle(result, (0, 0), (result.shape[1], 62), (25, 25, 25), -1)
-    cv2.putText(result, f"Single fly per tube | frame {index} | t={time_sec:.3f}s | v*=5.5cm / first-passage time",
+    cv2.putText(result, f"Single fly per tube | frame {index} | t={time_sec:.3f}s | v*={distance_cm:g}cm / first-passage time",
                 (15, 40), cv2.FONT_HERSHEY_SIMPLEX, 0.72, (255, 255, 255), 2)
     for tube, state in states.items():
         tracker = trackers[tube]
@@ -84,7 +92,27 @@ def resolve_device(requested, torch):
     return "cpu"
 
 
-def run(video, weights, output, limit=None, device="auto"):
+def detect_tubes(model, frame, regions, device, active):
+    """六管补成同尺寸后一次批量推理；只在右下补边，检测框坐标不用换算。"""
+    tubes = [tube for tube in regions if active[tube]]
+    if not tubes:
+        return {tube: [] for tube in regions}
+    crops = [frame[y1:y2, x1:x2] for x1, y1, x2, y2 in (regions[tube] for tube in tubes)]
+    height, width = max(c.shape[0] for c in crops), max(c.shape[1] for c in crops)
+    crops = [cv2.copyMakeBorder(c, 0, height - c.shape[0], 0, width - c.shape[1], cv2.BORDER_REPLICATE) for c in crops]
+    results = model.predict(crops, conf=0.1, iou=0.45, imgsz=640, device=device, rect=True,
+                            max_det=20, verbose=False, save=False, batch=len(crops))
+    found = {tube: [] for tube in regions}
+    for tube, result in zip(tubes, results):
+        for values in result.boxes.data.detach().cpu().tolist():
+            ax, ay, bx, by, confidence, cls = values
+            if int(cls) != 0:
+                raise ValueError("检测器输出了非fly类别。")
+            found[tube].append({"x1": ax, "y1": ay, "x2": bx, "y2": by, "confidence": confidence})
+    return found
+
+
+def run(video, weights, output, limit=None, device="auto", distance_cm=5.5, geometry_file=None):
     import torch
     from ultralytics import YOLO
 
@@ -97,14 +125,15 @@ def run(video, weights, output, limit=None, device="auto"):
     print(f"运行设备：{'CUDA:0' if selected_device == '0' else 'CPU（较慢）'}", flush=True)
     torch.set_num_threads(4)
     cv2.setNumThreads(2)
-    reference, geometry = auto_calibrate(video)
+    reference, geometry = load_manual_geometry(video, geometry_file) if geometry_file else auto_calibrate(video)
     registration = TranslationRegistration(reference)
     model = YOLO(str(weights), task="detect")
     if model.names != {0: "fly"}:
         raise ValueError("当前模型不是单类别fly权重。")
     tubes = list(geometry["tubes"])
     trackers = {tube: SingleFlyTracker(i, item["bottom_y_reference"],
-                lambda x, line=geometry["finish_line"]: line["slope"] * x + line["intercept"])
+                lambda x, line=geometry["finish_line"]: line["slope"] * x + line["intercept"],
+                geometry["pixels_per_cm"] * 5.5 / distance_cm, distance_cm)
                 for i, (tube, item) in enumerate(geometry["tubes"].items(), 1)}
     output.mkdir(parents=True, exist_ok=True)
     (output / "automatic_geometry.json").write_text(json.dumps(geometry, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
@@ -146,26 +175,24 @@ def run(video, weights, output, limit=None, device="auto"):
                         registration_failures += 1
                     states = {}
                     counts = {"frame_idx": index, "time_sec": pts, "ambiguous_tubes": 0}
+                    regions = {}
                     for tube in tubes:
-                        item = geometry["tubes"][tube]
-                        x1, y1, x2, y2 = item["roi"]
+                        x1, y1, x2, y2 = geometry["tubes"][tube]["roi"]
                         rx1, ry1, rx2, ry2 = [round(value) for value in (x1 + dx, y1 + dy, x2 + dx, y2 + dy)]
                         rx1, rx2 = max(0, rx1), min(frame.shape[1], rx2)
                         ry1, ry2 = max(0, ry1), min(frame.shape[0], ry2)
-                        if rx2 - rx1 < 40 or ry2 - ry1 < 120:
+                        if rx2 - rx1 < MIN_ROI_WIDTH or ry2 - ry1 < MIN_ROI_HEIGHT:
                             raise ValueError(f"{tube}自动ROI越界或过小。")
-                        raw = []
-                        if trackers[tube].crossing is None:
-                            result = model.predict(frame[ry1:ry2, rx1:rx2], conf=0.1, iou=0.45,
-                                                   imgsz=640, device=selected_device, rect=True, max_det=20, verbose=False, save=False)[0]
-                            for det_index, values in enumerate(result.boxes.data.detach().cpu().tolist(), 1):
-                                ax, ay, bx, by, confidence, cls = values
-                                if int(cls) != 0:
-                                    raise ValueError("检测器输出了非fly类别。")
-                                row = {"x1": ax, "y1": ay, "x2": bx, "y2": by, "confidence": confidence}
-                                raw.append(row)
-                                raw_writer.writerow(fmt(dict(frame_idx=index, time_sec=pts, tube_id=tube,
-                                                             detection_index=det_index, **row)))
+                        regions[tube] = (rx1, ry1, rx2, ry2)
+                    detections = detect_tubes(model, frame, regions, selected_device,
+                                              {tube: trackers[tube].crossing is None for tube in tubes})
+                    for tube in tubes:
+                        rx1, ry1, _, _ = regions[tube]
+                        x1, y1, _, _ = geometry["tubes"][tube]["roi"]
+                        raw = detections[tube]
+                        for det_index, row in enumerate(raw, 1):
+                            raw_writer.writerow(fmt(dict(frame_idx=index, time_sec=pts, tube_id=tube,
+                                                         detection_index=det_index, **row)))
                         # 坐标偏移以实际裁剪位置为准；基准平移单独存为参考坐标。
                         state = trackers[tube].update(index, pts, raw, (rx1, ry1), (dx, dy), valid)
                         states[tube] = state
@@ -192,7 +219,7 @@ def run(video, weights, output, limit=None, device="auto"):
                     counts["total"] = sum(counts[tube] for tube in tubes)
                     counts["finished_tubes"] = sum(tracker.crossing is not None for tracker in trackers.values())
                     count_writer.writerow(fmt(counts))
-                    encoder.stdin.write(annotate(frame, geometry, (dx, dy), states, trackers, index, pts).tobytes())
+                    encoder.stdin.write(annotate(frame, geometry, (dx, dy), states, trackers, index, pts, distance_cm).tobytes())
                     processed += 1
                     if processed % 100 == 0:
                         print(f"{video.name}: {processed}帧，已确认首次过线 {counts['finished_tubes']}/6", flush=True)
@@ -212,14 +239,16 @@ def run(video, weights, output, limit=None, device="auto"):
               "processed_frames": processed, "reached_end_of_video": limit is None,
               "decode_metadata_gap": max(0, info["frame_count"] - processed) if limit is None else None,
               "geometry_reference_frame": geometry["reference_frame"],
+              "calibration_method": geometry["calibration_method"], "pixels_per_cm": geometry["pixels_per_cm"],
               "finish_line_timing_quality": geometry["finish_line"]["timing_quality"],
               "registration_uncertain_frames": registration_failures, "invalid_pts_fallback_frames": decoded_pts_invalid,
               "results": results, "processing_seconds": elapsed, "processing_fps": processed / elapsed,
               "device": selected_device, "cuda_used": selected_device == "0",
-              "rules": {"one_identity_per_tube": True, "time_zero": "video frame 0", "distance_cm": 5.5,
+              "rules": {"one_identity_per_tube": True, "time_zero": "video frame 0", "distance_cm": distance_cm,
                         "first_crossing": "bbox center from below to above background line; three consecutive observations confirm",
                         "missing_frames": "no synthetic observation or interpolated crossing",
-                        "speed_interpretation": "nominal 5.5cm / first crossing time from video start; review flags must be checked"}}
+                        "speed_interpretation": "candidate_speed_cm_s = nominal distance / first crossing time from video start; review flags must be checked",
+                        "net_climb_interpretation": "net_climb_speed_cm_s = distance from observed start height to the line / time from first 0.3cm rise to crossing"}}
     (output / "single_fly_report.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(json.dumps({"video": video.name, "processed_frames": processed, "results": results}, ensure_ascii=False, indent=2))
     return report
@@ -230,10 +259,12 @@ if __name__ == "__main__":
     sys.stderr.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("video", type=Path)
-    parser.add_argument("--weights", type=Path, default=ROOT / "assets/fly_yolo26n_best.pt")
+    parser.add_argument("--weights", type=Path, default=RESOURCE / "assets/fly_yolo26n_best.pt")
     parser.add_argument("--output", type=Path)
     parser.add_argument("--limit", type=int, help="仅用于诊断，默认读取所有可解码帧")
     parser.add_argument("--device", choices=["auto", "0", "cpu"], default="auto")
+    parser.add_argument("--distance-cm", type=float, default=5.5, help="管底到终点线的标定距离")
+    parser.add_argument("--geometry", type=Path, help="calibrate_manual.py 保存的手动标定文件")
     args = parser.parse_args()
-    destination = args.output or ROOT / "outputs/single_fly_analysis" / args.video.stem
-    run(args.video, args.weights, destination, args.limit, args.device)
+    destination = args.output or DATA / "outputs/single_fly_analysis" / args.video.stem
+    run(args.video, args.weights, destination, args.limit, args.device, args.distance_cm, args.geometry)

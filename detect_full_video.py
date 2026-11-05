@@ -14,7 +14,7 @@ import cv2
 import numpy as np
 
 from roi_utils import draw_rois, load_rois
-from video_utils import open_video, video_info
+from video_utils import open_encoder, open_video, video_info
 
 ROOT = Path(__file__).resolve().parent
 (ROOT / ".ultralytics").mkdir(exist_ok=True)
@@ -68,19 +68,6 @@ def annotate_frame(frame, rois, detections, frame_idx, time_sec):
             cv2.putText(result, label, origin, cv2.FONT_HERSHEY_SIMPLEX, 0.38, (0, 0, 0), 3)
             cv2.putText(result, label, origin, cv2.FONT_HERSHEY_SIMPLEX, 0.38, (255, 255, 0), 1)
     return result
-
-
-def open_encoder(path, width, height, fps, log):
-    """向 FFmpeg 输送内存中的 BGR 帧，不落盘中间图片，编码为浏览器可播放的 H.264。"""
-    import imageio_ffmpeg
-
-    command = [imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-loglevel", "warning", "-n",
-               "-f", "rawvideo", "-pixel_format", "bgr24", "-video_size", f"{width}x{height}",
-               "-framerate", str(fps), "-i", "pipe:0", "-an", "-c:v", "libx264",
-               "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-threads", "2",
-               "-movflags", "+faststart", str(path)]
-    return subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log,
-                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
 
 
 def run_detection(video, config, weights, output, device="0"):

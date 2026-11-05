@@ -10,3 +10,8 @@ __pycache__/
 outputs/
 *.mp4
 *.MP4
+dataset_v2/
+.venv-build/
+.build-tmp/
+build/
+dist/

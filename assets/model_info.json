@@ -1,10 +1,10 @@
 {
   "filename": "fly_yolo26n_best.pt",
-  "sha256": "69d0d04419b2948cb27d9bd363f41b6f141c0d6aae06609c732eee01e8a604e7",
-  "size_bytes": 5352773,
+  "sha256": "bae55ef5f567c0aea044c11d461fbbff4b4a15c2d2b024188178b352c098a5e4",
+  "size_bytes": 5354629,
   "model": "YOLO26n Detection",
   "classes": {
     "0": "fly"
   },
-  "description": "六管果蝇教学微调模型；候选速度结果仍需要人工复核。"
+  "description": "六管果蝇检测模型 v2：在旧模型基础上用 2026-10 六十段视频的伪标签微调；候选速度结果仍需要人工复核。旧模型保留为 fly_yolo26n_v1.pt。"
 }

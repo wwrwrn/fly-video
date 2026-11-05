@@ -3,6 +3,8 @@
 from contextlib import contextmanager
 from pathlib import Path
 import math
+import os
+import subprocess
 
 import cv2
 
@@ -49,6 +51,19 @@ def read_frame(capture, frame_index, frame_count):
     if not success or frame is None:
         raise ValueError(f"第 {frame_index} 帧解码失败；元数据帧数可能与可解码帧数不一致，也可能存在编码兼容问题。")
     return frame
+
+
+def open_encoder(path, width, height, fps, log):
+    """向 FFmpeg 输送内存中的 BGR 帧，不落盘中间图片，编码为浏览器可播放的 H.264。"""
+    import imageio_ffmpeg
+
+    command = [imageio_ffmpeg.get_ffmpeg_exe(), "-hide_banner", "-loglevel", "warning", "-n",
+               "-f", "rawvideo", "-pixel_format", "bgr24", "-video_size", f"{width}x{height}",
+               "-framerate", str(fps), "-i", "pipe:0", "-an", "-c:v", "libx264",
+               "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-threads", "2",
+               "-movflags", "+faststart", str(path)]
+    return subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=log,
+                            creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
 
 
 def save_frame(frame, path):

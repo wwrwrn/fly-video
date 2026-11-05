@@ -1,0 +1,94 @@
+{
+  "image_size": [
+    1920,
+    1080
+  ],
+  "tubes": {
+    "tube_1": {
+      "roi": [
+        418,
+        338,
+        609,
+        792
+      ],
+      "bottom_y_reference": 768,
+      "axis_x_reference": 512.0,
+      "finish_y_at_axis": 422.22089552238805,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_2": {
+      "roi": [
+        615,
+        333,
+        807,
+        781
+      ],
+      "bottom_y_reference": 757,
+      "axis_x_reference": 712.0,
+      "finish_y_at_axis": 417.444776119403,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_3": {
+      "roi": [
+        813,
+        328,
+        988,
+        796
+      ],
+      "bottom_y_reference": 772,
+      "axis_x_reference": 908.0,
+      "finish_y_at_axis": 412.7641791044776,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_4": {
+      "roi": [
+        994,
+        324,
+        1165,
+        769
+      ],
+      "bottom_y_reference": 745,
+      "axis_x_reference": 1075.0,
+      "finish_y_at_axis": 408.77611940298505,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_5": {
+      "roi": [
+        1171,
+        320,
+        1342,
+        754
+      ],
+      "bottom_y_reference": 730,
+      "axis_x_reference": 1262.0,
+      "finish_y_at_axis": 404.31044776119404,
+      "bottom_edge_strength": 0.0
+    },
+    "tube_6": {
+      "roi": [
+        1348,
+        316,
+        1521,
+        744
+      ],
+      "bottom_y_reference": 720,
+      "axis_x_reference": 1428.0,
+      "finish_y_at_axis": 400.3462686567164,
+      "bottom_edge_strength": 0.0
+    }
+  },
+  "tube_pitch_pixels": 187.0,
+  "pixels_per_cm": 61.434464043419275,
+  "estimated_bottoms": [],
+  "reference_frame": 30,
+  "finish_line": {
+    "slope": -0.023880597014925373,
+    "intercept": 434.44776119402985,
+    "fit_rmse_pixels": 0.0,
+    "support_bins": 2,
+    "support_span_fraction": 0.6979166666666666,
+    "timing_quality": "ok",
+    "definition": "人工点选的背景深色横线。"
+  },
+  "calibration_method": "人工核对：坐标由画面读取"
+}
