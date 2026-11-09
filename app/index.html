@@ -124,6 +124,30 @@ img.preview { width: 100%; border-radius: 8px; display: block; }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
 .btn { padding: 6px 14px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.btn.danger { background: var(--bad); border-color: var(--bad); color: #fff; }
+a.btn { text-decoration: none; color: var(--text); white-space: nowrap; }
+.pick-folder { display: none; margin-top: 4px; font-size: 12px; }
+.desktop .pick-folder { display: inline-block; }
+.row { display: flex; align-items: center; gap: 2px; }
+.row .nav { flex: 1; min-width: 0; }
+.more { flex: none; width: 26px; height: 26px; border: 0; border-radius: 6px; background: none; color: var(--text-3); line-height: 1; }
+.more:hover, .more:focus-visible { background: var(--line); color: var(--text); }
+.tree details summary { align-items: center; }
+.tree .side, .job .side { display: flex; align-items: center; gap: 4px; }
+.job .x { border: 0; background: none; color: var(--text-3); padding: 0 2px; font-size: 15px; line-height: 1; }
+.job .x:hover { color: var(--text); }
+.menu { position: fixed; z-index: 25; display: none; min-width: 168px; padding: 4px; background: var(--raised); border: 1px solid var(--line-strong); border-radius: 9px; box-shadow: var(--shadow); }
+.menu.open { display: block; }
+.menu button { display: block; width: 100%; padding: 7px 10px; border: 0; border-radius: 6px; background: none; text-align: left; }
+.menu button:hover { background: var(--bg); }
+.menu button.danger { color: var(--bad); }
+.ask .sheet { max-width: 440px; margin-top: 12vh; }
+.ask input { width: 100%; padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--raised); }
+.head-actions { margin-left: auto; display: flex; gap: 8px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+th.left, td.left { text-align: left; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--bg); }
 @media (max-width: 900px) {
   .shell { grid-template-columns: 1fr; height: auto; }
   aside { border-right: 0; border-bottom: 1px solid var(--line); }
@@ -135,10 +159,11 @@ img.preview { width: 100%; border-radius: 8px; display: block; }
 <body>
 <div class="shell">
   <aside>
-    <div class="brand">果蝇攀爬分析<small>六管单蝇 · 本机运行，视频不外传</small></div>
+    <div class="brand">果蝇攀爬分析<small id="brand-sub">六管单蝇 · 本机运行，视频不外传</small></div>
     <div class="drop" id="drop" role="button" tabindex="0">
       <strong>拖入视频或文件夹</strong>
-      <span>也可以点这里选择 MP4</span>
+      <span>也可以点这里选择 MP4</span><br>
+      <a href="#" class="pick-folder" id="pick-folder">选择整个文件夹</a>
       <input id="picker" type="file" accept=".mp4" multiple hidden>
     </div>
     <label class="group-row">分组 <input id="group" placeholder="如 W118 雄，文件夹自动识别"></label>
@@ -157,6 +182,14 @@ img.preview { width: 100%; border-radius: 8px; display: block; }
     <button class="btn" id="undo">撤销一步</button>
     <button class="btn primary" id="save" hidden>标定正确，开始分析</button>
   </div>
+</div></div>
+<div class="menu" id="menu" role="menu"></div>
+<div class="modal ask" id="ask"><div class="sheet">
+  <div class="step" id="ask-title"></div>
+  <div class="note" id="ask-text"></div>
+  <input id="ask-input" list="group-list" hidden>
+  <datalist id="group-list"></datalist>
+  <div class="actions"><button class="btn" id="ask-cancel">取消</button><button class="btn primary" id="ask-ok">确定</button></div>
 </div></div>
 <script>
 const $ = id => document.getElementById(id);
@@ -185,10 +218,11 @@ let metric = "net_speed", withReview = false;
 function tree() {
   const groups = {};
   data.videos.forEach(video => (groups[video.group] ??= []).push(video));
+  const more = (attribute, value, label) => `<button class="more" ${attribute}="${esc(value)}" title="${label}" aria-label="${label}">⋯</button>`;
   $("tree").innerHTML = `<button class="nav ${view.page === "overview" ? "on" : ""}" data-overview>全部分组总览</button><h3>视频</h3>` +
     (Object.keys(groups).length ? Object.entries(groups).map(([group, videos]) => `<details ${videos.some(v => v.run === view.run) ? "open" : ""}>
-      <summary>${esc(group)}<small>${videos.length} 段</small></summary>
-      ${videos.map(v => `<button class="nav ${v.run === view.run ? "on" : ""}" data-run="${esc(v.run)}"><span>${esc(v.stem.replace(/^\d{8}_/, ""))}</span><small>过线 ${v.crossed}/${v.tubes}</small></button>`).join("")}
+      <summary><span>${esc(group)}</span><span class="side"><small>${videos.length} 段</small>${videos.every(v => v.editable) ? more("data-group-menu", group, "重命名或删除这个分组") : ""}</span></summary>
+      ${videos.map(v => `<div class="row"><button class="nav ${v.run === view.run ? "on" : ""}" data-run="${esc(v.run)}"><span>${esc(v.stem.replace(/^\d{8}_/, ""))}</span><small>过线 ${v.crossed}/${v.tubes}</small></button>${v.editable ? more("data-menu", v.run, "改分组或删除") : ""}</div>`).join("")}
     </details>`).join("") : `<p class="note" style="padding:6px 10px">还没有结果</p>`);
 }
 function groupStats() {
@@ -227,6 +261,13 @@ function renderOverview() {
       <h2>分组统计</h2><p class="sub">中位数只用上图选中的管。样本少于 8 时标出，不适合下结论。</p>
       <table><thead><tr><th>分组</th><th>管数</th><th>过线</th><th>过线率</th><th>未过线</th><th>需复核</th><th>中位速度 (cm/s)</th><th>样本数</th></tr></thead><tbody>
       ${stats.map(s => `<tr><td>${esc(s.group)}</td><td>${s.tubes.length}</td><td>${s.crossed}</td><td>${Math.round(s.crossed / s.tubes.length * 100)}%</td><td>${s.notReached}</td><td>${s.review}</td><td>${num(s.median)}</td><td>${s.used.length}${s.used.length < 8 ? ' <span class="small-n">样本少</span>' : ""}</td></tr>`).join("")}
+      </tbody></table>
+    </div>
+    <div class="card scroll">
+      <div class="card-head"><div><h2>每段视频的平均速度</h2><p class="sub">每段视频只算过线的管，没过线的管没有速度，不计入。需复核的管也计入平均，数量单独列出。点一行打开视频。</p></div>
+        <a class="btn" href="/api/video-summary.csv" download="视频平均速度.csv">导出 CSV</a></div>
+      <table><thead><tr><th class="left">分组</th><th class="left">视频</th><th>过线</th><th>其中需复核</th><th>平均净爬升速度 (cm/s)</th><th>平均 5.5 cm 速度 (cm/s)</th></tr></thead><tbody>
+      ${data.videos.map(v => `<tr class="click" data-open="${esc(v.run)}"><td class="left">${esc(v.group)}</td><td class="left">${esc(v.stem)}</td><td>${v.crossed}/${v.tubes}</td><td>${v.crossed_review}</td><td>${num(v.mean_net_speed)}</td><td>${num(v.mean_speed)}</td></tr>`).join("")}
       </tbody></table>
     </div>
   </div>`;
@@ -287,8 +328,18 @@ function renderRun(detail) {
       <span class="sub">${esc(outcome[0])}${flags.length ? " · " + esc(flags.join("、")) : ""}</span>
     </button>`;
   }).join("");
+  const crossed = report.results.filter(r => r.outcome === "first_crossing_recorded");
+  const average = key => { const values = crossed.map(r => r[key]).filter(value => value !== null); return values.length ? values.reduce((a, b) => a + b, 0) / values.length : null; };
+  const crossedReview = crossed.filter(r => r.speed_quality === "review").length;
+  const editable = data.videos.find(v => v.run === detail.run)?.editable;
   $("main").innerHTML = `<div class="page">
-    <div class="head"><h1>${esc(stem)}</h1><span>${esc(group)}</span></div>
+    <div class="head"><h1>${esc(stem)}</h1><span>${esc(group)}</span>${editable ? `<span class="head-actions"><button class="btn" data-act="move">改分组</button><button class="btn" data-act="delete">删除结果</button></span>` : ""}</div>
+    <div class="stats">
+      <div class="stat"><b>${crossed.length}/${report.results.length}</b><span>过线管数</span></div>
+      <div class="stat"><b>${num(average("net_climb_speed_cm_s"))}</b><span>平均净爬升速度 (cm/s)</span></div>
+      <div class="stat"><b>${num(average("candidate_speed_cm_s"))}</b><span>平均 5.5 cm 速度 (cm/s)</span></div>
+    </div>
+    <p class="note">平均速度只算过线的 ${crossed.length} 管，没过线的管不计入${crossedReview ? `；其中 ${crossedReview} 管需复核，也计入了平均` : ""}。</p>
     <div class="detail">
       <div class="card"><video id="player" src="${base}/annotated_single_fly.mp4" controls preload="metadata"></video></div>
       <div class="card"><h2>六管结果</h2><p class="sub">过线时间 · 速度单位 cm/s。点击跳到过线时刻。</p><div class="tubes">${cards}</div></div>
@@ -360,14 +411,17 @@ function drawClimb(detail, player) {
 function render() { tree(); if (view.page === "overview") renderOverview(); }
 
 /* 任务和上传 */
+const DISMISS = {running: "停止分析", queued: "取消排队", uploading: ""};
 function renderJobs() {
-  const rows = [...uploads, ...jobs.filter(j => j.state !== "done" || Date.now() / 1000 - j.created < 3600).reverse()];
+  const local = uploads.map((item, index) => ({...item, local: index}));
+  const rows = [...local, ...jobs.filter(j => j.state !== "done" || Date.now() / 1000 - j.created < 3600).reverse()];
   $("jobs").innerHTML = rows.map(job => {
     const percent = job.state === "uploading" ? job.percent : job.state === "running" ? Math.min(100, job.done_frames / Math.max(1, job.frames) * 100) : null;
     const chip = {done: "good", failed: "bad", needs_calibration: "warn"}[job.state] || "plain";
     const message = job.state === "needs_calibration" ? `${job.message} 点这里手动标定` : job.state === "running" ? `已过线 ${job.crossed}/6` : job.message;
-    return `<div class="job ${job.state === "needs_calibration" || job.run ? "link" : ""}" data-job="${esc(job.id || "")}">
-      <div class="name"><b title="${esc(job.name)}">${esc(job.name)}</b><span class="chip ${chip}">${STATES[job.state]}</span></div>
+    const label = DISMISS[job.state] ?? "从列表移除";
+    return `<div class="job ${job.state === "needs_calibration" || job.run ? "link" : ""}" data-job="${esc(job.id || "")}" data-local="${job.local ?? ""}">
+      <div class="name"><b title="${esc(job.name)}">${esc(job.name)}</b><span class="side"><span class="chip ${chip}">${STATES[job.state]}</span>${label ? `<button class="x" data-dismiss title="${label}" aria-label="${label}">×</button>` : ""}</span></div>
       ${percent === null ? "" : `<div class="bar"><i style="width:${percent}%"></i></div>`}
       ${message ? `<div class="msg">${esc(message)}</div>` : ""}</div>`;
   }).join("");
@@ -409,18 +463,95 @@ async function readEntry(entry, folder, found) {
   }
 }
 async function take(pairs) { const fallback = $("group").value; for (const [file, folder] of pairs) await upload(file, folder || fallback); }
+async function uploadEntries(entries) { const found = []; for (const entry of entries) await readEntry(entry, "", found); take(found); }
+function notice(name, message) { uploads.push({name, state: "failed", message}); renderJobs(); }
+async function act(promise) { try { return await promise; } catch (error) { notice("操作没有完成", error.message); return null; } }
+
+/* 桌面版：窗口组件直接给出原视频路径，按路径分析，不复制视频；网页版才上传副本。 */
+let desktop = false, pendingDrop = null, lastDesktopDrop = 0;
+function detectDesktop() { desktop = Boolean(window.pywebview?.api?.choose_videos); document.body.classList.toggle("desktop", desktop); }
+addEventListener("pywebviewready", detectDesktop);
+async function addPaths(paths) {
+  if (!paths?.length) return;
+  await act(api("/api/add", {paths, group: $("group").value}));
+  poll();
+}
+window.desktopDrop = paths => { lastDesktopDrop = Date.now(); clearTimeout(pendingDrop); pendingDrop = null; addPaths(paths); };
 const drop = $("drop");
-drop.addEventListener("click", () => $("picker").click());
-drop.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") $("picker").click(); });
+const choose = () => desktop ? window.pywebview.api.choose_videos().then(addPaths) : $("picker").click();
+drop.addEventListener("click", choose);
+drop.addEventListener("keydown", event => { if (event.key === "Enter" || event.key === " ") choose(); });
+$("pick-folder").addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); window.pywebview.api.choose_folder().then(addPaths); });
 $("picker").addEventListener("change", event => { take([...event.target.files].map(file => [file, ""])); event.target.value = ""; });
 addEventListener("dragover", event => { event.preventDefault(); drop.classList.add("over"); });
 addEventListener("dragleave", event => { if (!event.relatedTarget) drop.classList.remove("over"); });
-addEventListener("drop", async event => {
+addEventListener("drop", event => {
   event.preventDefault(); drop.classList.remove("over");
-  const entries = [...event.dataTransfer.items].map(item => item.webkitGetAsEntry()).filter(Boolean), found = [];
-  for (const entry of entries) await readEntry(entry, "", found);
-  take(found);
+  const entries = [...event.dataTransfer.items].map(item => item.webkitGetAsEntry()).filter(Boolean);
+  if (!desktop) return uploadEntries(entries);
+  // 路径由程序另外送来；两秒内没收到才退回上传副本。
+  if (Date.now() - lastDesktopDrop < 2000) return;
+  pendingDrop = setTimeout(() => { pendingDrop = null; uploadEntries(entries); }, 2000);
 });
+
+/* 结果管理：改分组、重命名分组、删除（放进回收站） */
+function ask({title, text, value = null, ok = "确定", danger = false}) {
+  return new Promise(resolve => {
+    const input = $("ask-input"), okButton = $("ask-ok"), cancel = $("ask-cancel");
+    $("ask-title").textContent = title; $("ask-text").textContent = text;
+    input.hidden = value === null; input.value = value ?? "";
+    $("group-list").innerHTML = [...new Set(data.videos.map(v => v.group))].map(g => `<option value="${esc(g)}">`).join("");
+    okButton.textContent = ok; okButton.className = "btn " + (danger ? "danger" : "primary");
+    $("ask").classList.add("open");
+    if (value === null) okButton.focus(); else { input.focus(); input.select(); }
+    const finish = answer => { $("ask").classList.remove("open"); okButton.onclick = cancel.onclick = input.onkeydown = null; resolve(answer); };
+    okButton.onclick = () => finish(value === null ? true : input.value.trim());
+    cancel.onclick = () => finish(null);
+    input.onkeydown = event => { if (event.key === "Enter") okButton.click(); if (event.key === "Escape") finish(null); };
+  });
+}
+function openMenu(anchor, items) {
+  const menu = $("menu"), rect = anchor.getBoundingClientRect ? anchor.getBoundingClientRect() : anchor;
+  menu.innerHTML = items.map((item, i) => `<button data-i="${i}" class="${item.danger ? "danger" : ""}">${esc(item.label)}</button>`).join("");
+  menu.classList.add("open");
+  menu.style.left = Math.max(8, Math.min(rect.left, innerWidth - menu.offsetWidth - 8)) + "px";
+  menu.style.top = Math.max(8, Math.min(rect.bottom + 4, innerHeight - menu.offsetHeight - 8)) + "px";
+  menu.onclick = event => { const i = event.target.closest("button")?.dataset.i; closeMenu(); if (i !== undefined) items[i].run(); };
+}
+function closeMenu() { $("menu").classList.remove("open"); }
+addEventListener("mousedown", event => { if (!event.target.closest("#menu,.more")) closeMenu(); });
+addEventListener("keydown", event => { if (event.key === "Escape") closeMenu(); });
+async function refresh(follow) {
+  data = await api("/api/overview");
+  if (follow) {
+    const found = data.videos.find(v => v.stem === follow.stem && v.group === follow.group);
+    if (found && view.page === "run") view.run = found.run;
+  }
+  if (view.page === "run" && data.videos.some(v => v.run === view.run)) openRun(view.run);
+  else { view = {page: "overview"}; render(); }
+}
+async function moveVideo(video) {
+  const group = await ask({title: `把 ${video.stem} 移到分组`, text: "输入已有分组名或新名字。只移动分析结果，原视频不动。", value: video.group === "未分组" ? "" : video.group, ok: "移动"});
+  if (!group || group === video.group) return;
+  if (await act(api("/api/move", {run: video.run, group}))) refresh(view.run === video.run ? {stem: video.stem, group} : null);
+}
+async function deleteVideo(video) {
+  if (!await ask({title: `删除 ${video.stem} 的分析结果？`, text: "结果文件会放进回收站，需要时可以还原。原视频不会被删除。", ok: "删除", danger: true})) return;
+  if (await act(api("/api/delete", {run: video.run}))) refresh();
+}
+async function renameGroup(group) {
+  const name = await ask({title: `重命名分组“${group}”`, text: "输入新名字。和已有分组同名时会合并进去。", value: group === "未分组" ? "" : group});
+  if (!name || name === group) return;
+  const current = data.videos.find(v => v.run === view.run);
+  if (await act(api("/api/rename-group", {group, name}))) refresh(current?.group === group ? {stem: current.stem, group: name} : null);
+}
+async function deleteGroup(group) {
+  const count = data.videos.filter(v => v.group === group).length;
+  if (!await ask({title: `删除“${group}”的 ${count} 段结果？`, text: "结果文件会放进回收站，需要时可以还原。原视频不会被删除。", ok: "全部删除", danger: true})) return;
+  if (await act(api("/api/delete-group", {group}))) refresh();
+}
+const videoMenu = run => { const video = data.videos.find(v => v.run === run); return [{label: "移到其他分组…", run: () => moveVideo(video)}, {label: "删除这段结果", danger: true, run: () => deleteVideo(video)}]; };
+const groupMenu = group => [{label: "重命名分组…", run: () => renameGroup(group)}, {label: "删除整组结果", danger: true, run: () => deleteGroup(group)}];
 
 /* 手动标定 */
 const HINTS = ["横线的左端", "横线的右端", ...[1, 2, 3, 4, 5, 6].map(i => `第 ${i} 根管的管底中心`)];
@@ -480,23 +611,52 @@ $("save").addEventListener("click", async () => {
 
 /* 事件委托：列表每次轮询都会重建 */
 $("tree").addEventListener("click", event => {
+  const more = event.target.closest(".more");
+  if (more) {
+    event.preventDefault(); event.stopPropagation();
+    return openMenu(more, more.dataset.menu ? videoMenu(more.dataset.menu) : groupMenu(more.dataset.groupMenu));
+  }
   const target = event.target.closest("[data-run],[data-overview]");
   if (!target) return;
   if (target.dataset.run) openRun(target.dataset.run);
   else { view = {page: "overview"}; render(); }
 });
-$("jobs").addEventListener("click", event => {
-  const job = jobs.find(item => item.id === event.target.closest(".job")?.dataset.job);
+$("tree").addEventListener("contextmenu", event => {
+  const row = event.target.closest(".row"), summary = event.target.closest("summary");
+  const more = (row || summary)?.querySelector(".more");
+  if (!more) return;
+  event.preventDefault();
+  const point = {left: event.clientX, bottom: event.clientY};
+  openMenu(point, more.dataset.menu ? videoMenu(more.dataset.menu) : groupMenu(more.dataset.groupMenu));
+});
+$("jobs").addEventListener("click", async event => {
+  const card = event.target.closest(".job");
+  if (!card) return;
+  if (event.target.closest("[data-dismiss]")) {
+    if (!card.dataset.job) { uploads.splice(Number(card.dataset.local), 1); return renderJobs(); }
+    const job = jobs.find(item => item.id === card.dataset.job);
+    if (job?.state === "running" && !await ask({title: `停止分析 ${job.name}？`, text: "这一段已分析的部分不会保存。", ok: "停止", danger: true})) return;
+    await act(api("/api/dismiss", {job: card.dataset.job}));
+    return poll();
+  }
+  const job = jobs.find(item => item.id === card.dataset.job);
   if (job?.state === "needs_calibration") openCalibration(job.id);
-  else if (job?.run) openRun(job.run);
+  else if (job?.run && data.videos.some(v => v.run === job.run)) openRun(job.run);
 });
 $("main").addEventListener("click", event => {
   if (event.target.dataset.metric) { metric = event.target.dataset.metric; renderOverview(); }
+  const action = event.target.closest("[data-act]")?.dataset.act, video = data.videos.find(v => v.run === view.run);
+  if (action === "move" && video) moveVideo(video);
+  if (action === "delete" && video) deleteVideo(video);
+  const row = event.target.closest("[data-open]");
+  if (row) openRun(row.dataset.open);
 });
 $("main").addEventListener("change", event => {
   if (event.target.id === "review") { withReview = event.target.checked; renderOverview(); }
 });
 addEventListener("resize", () => { if (view.page === "overview" && data.tubes.length) renderOverview(); });
+detectDesktop();
+api("/api/info").then(info => { $("brand-sub").textContent = `v${info.version} · 六管单蝇 · 本机运行，视频不外传`; }).catch(() => {});
 (async () => { data = await api("/api/overview"); render(); poll(); setInterval(poll, 1500); })();
 </script>
 </body>

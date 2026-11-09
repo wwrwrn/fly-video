@@ -7,3 +7,6 @@ import sys
 FROZEN = getattr(sys, "frozen", False)
 RESOURCE = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 DATA = Path(os.environ.get("FLY_APP_DATA") or Path.home() / "Documents" / "果蝇攀爬分析") if FROZEN else RESOURCE
+
+# 界面左上角和日志里显示，方便核对别人用的是哪一版。
+VERSION = "0.1.1"

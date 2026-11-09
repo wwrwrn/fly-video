@@ -1,6 +1,11 @@
 """升级新增规则的测试：缩放适配、净爬升指标、过线后停止、标定纠偏、人工点选和批量汇总。"""
 
+import json
+from pathlib import Path
+import shutil
+import tempfile
 import unittest
+from unittest.mock import patch
 
 import numpy as np
 
@@ -143,6 +148,85 @@ class AppTests(unittest.TestCase):
         for run in ("../config", "../../Windows", "no_such_run"):
             with self.assertRaises(ValueError):
                 result_dir(run)
+
+    def make_run(self, root, group, name, speeds):
+        folder = root / "app_runs" / group / name
+        folder.mkdir(parents=True)
+        results = [{"tube_id": f"tube_{i}", "outcome": "first_crossing_recorded" if speed else "not_reached",
+                    "speed_quality": "auto_candidate", "first_crossing_time_sec": 1.0 if speed else None,
+                    "candidate_speed_cm_s": speed, "net_climb_speed_cm_s": speed and speed * 2}
+                   for i, speed in enumerate(speeds, 1)]
+        (folder / "single_fly_report.json").write_text(json.dumps({"results": results}), encoding="utf-8")
+        return folder
+
+    def with_outputs(self):
+        import app_server
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+        outputs = root / "outputs"
+        for name, value in {"OUTPUTS": outputs, "RUNS": outputs / "app_runs", "RESULT_ROOTS": (outputs / "batch_runs", outputs / "app_runs")}.items():
+            patcher = patch.object(app_server, name, value)
+            patcher.start()
+            self.addCleanup(patcher.stop)
+        patcher = patch.object(app_server, "send_to_recycle_bin", shutil.rmtree)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return app_server, outputs
+
+    def test_video_average_skips_tubes_that_never_crossed(self):
+        app_server, outputs = self.with_outputs()
+        self.make_run(outputs, "A", "v1", [1.0, 2.0, None, 3.0, None, None])
+        video = app_server.overview()["videos"][0]
+        self.assertEqual(video["crossed"], 3)
+        self.assertAlmostEqual(video["mean_speed"], 2.0)
+        self.assertAlmostEqual(video["mean_net_speed"], 4.0)
+        self.assertTrue(video["editable"])
+        self.assertIn("2.000", app_server.summary_csv())
+        self.make_run(outputs, "A", "v2", [None] * 6)
+        self.assertIsNone(app_server.overview()["videos"][1]["mean_speed"])
+
+    def test_move_rename_and_delete_keep_repeat_runs_together(self):
+        app_server, outputs = self.with_outputs()
+        self.make_run(outputs, "未分组", "v1", [1.0] * 6)
+        self.make_run(outputs, "未分组", "v1_run1", [2.0] * 6)
+        self.make_run(outputs, "B", "v2", [1.0] * 6)
+        self.assertEqual(app_server.move_videos(["app_runs/未分组/v1"], "B"), ["app_runs/B/v1"])
+        self.assertEqual(sorted(p.name for p in (outputs / "app_runs" / "B").iterdir()), ["v1", "v1_run1", "v2"])
+        self.assertFalse((outputs / "app_runs" / "未分组").exists())
+        self.make_run(outputs, "C", "v1", [1.0] * 6)
+        with self.assertRaises(ValueError):
+            app_server.move_videos(["app_runs/C/v1"], "B")
+        app_server.move_videos(app_server.group_videos("B"), "W118 雄")
+        self.assertEqual(len(list((outputs / "app_runs" / "W118 雄").iterdir())), 3)
+        app_server.delete_video("app_runs/W118 雄/v1")
+        self.assertEqual([p.name for p in (outputs / "app_runs" / "W118 雄").iterdir()], ["v2"])
+        app_server.delete_group("W118 雄")
+        self.assertFalse((outputs / "app_runs" / "W118 雄").exists())
+
+    def test_batch_results_and_bad_group_names_are_refused(self):
+        app_server, outputs = self.with_outputs()
+        batch = outputs / "batch_runs" / "A" / "v1"
+        batch.mkdir(parents=True)
+        (batch / "single_fly_report.json").write_text('{"results": []}', encoding="utf-8")
+        with self.assertRaises(ValueError):
+            app_server.delete_video("batch_runs/A/v1")
+        for name in ("a/b", "x:y", "a" * 61):
+            with self.assertRaises(ValueError):
+                app_server.clean_group(name)
+        self.assertEqual(app_server.clean_group("  "), "未分组")
+
+    def test_dropped_folder_groups_by_video_folder(self):
+        import app_server
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root, True)
+        for relative in ("W118 雄/a.mp4", "W118 雄/b.MP4", "14541 雌/c.mp4", "14541 雌/notes.txt", "d.mp4",
+                         "W118 雄/a/annotated_single_fly.mp4"):
+            (root / relative).parent.mkdir(parents=True, exist_ok=True)
+            (root / relative).write_bytes(b"")
+        found = app_server.videos_in([str(root / "W118 雄"), str(root / "14541 雌"), str(root / "d.mp4")], "手动组")
+        self.assertEqual([(path.name, group) for path, group in found],
+                         [("a.mp4", "W118 雄"), ("b.MP4", "W118 雄"), ("c.mp4", "14541 雌"), ("d.mp4", "手动组")])
+        self.assertEqual(app_server.videos_in(["", ".", "W118 雄"], ""), [])
 
     def test_repeat_runs_share_one_video_key(self):
         self.assertEqual(REPEAT_SUFFIX.sub("", "20261009_190337_retry2"), "20261009_190337")

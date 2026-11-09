@@ -23,7 +23,7 @@ import webbrowser
 
 import cv2
 
-from app_paths import DATA, FROZEN, RESOURCE
+from app_paths import DATA, FROZEN, RESOURCE, VERSION
 from calibrate_manual import MANUAL_DIR, click_problem
 from launch_single_fly import next_output
 from single_fly_geometry import draw_geometry, geometry_from_clicks
@@ -39,6 +39,9 @@ CALIBRATION_FRAME = 30
 CHUNK = 1 << 20
 PROGRESS = re.compile(r"(\d+)帧，已确认首次过线 (\d)/6")
 REPEAT_SUFFIX = re.compile(r"_(retry|run)\d+$")
+BAD_GROUP = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+UNGROUPED = "未分组"
+OUTPUT_VIDEO = "annotated_single_fly.mp4"
 
 jobs = {}
 jobs_lock = threading.Lock()
@@ -69,6 +72,56 @@ def add_job(video, group, limit=None, geometry=None):
     return job_id
 
 
+def clean_group(name):
+    name = (name or "").strip().rstrip(".")
+    if not name:
+        return UNGROUPED
+    if BAD_GROUP.search(name) or len(name) > 60:
+        raise ValueError('分组名不能超过 60 个字，也不能包含 < > : " / \\ | ? * 这些符号。')
+    return name
+
+
+def videos_in(paths, group):
+    """拖入的单个视频用分组栏的名字；拖入的文件夹按视频所在的文件夹命名分组。"""
+    found = []
+    for raw in paths:
+        path = Path(raw or "")
+        if not raw or not path.is_absolute():
+            # 空路径会被当成当前目录，整盘视频都会被排进来。
+            continue
+        if path.is_dir():
+            # 跳过本程序自己输出的标注视频，免得把结果文件夹里的视频再分析一遍。
+            found += [(video, clean_group(video.parent.name)) for video in sorted(path.rglob("*"))
+                      if video.suffix.lower() == ".mp4" and video.is_file() and video.name != OUTPUT_VIDEO]
+        elif path.is_file() and path.suffix.lower() == ".mp4":
+            found.append((path, clean_group(group)))
+    return found
+
+
+def add_paths(paths, group):
+    """桌面版直接读原视频，不复制；原文件不会被移动或修改。"""
+    found = videos_in(paths, group)
+    if not found:
+        raise ValueError("没有找到 MP4 视频。")
+    for video, name in found:
+        add_job(video, name)
+    return {"added": len(found)}
+
+
+def dismiss_job(job_id):
+    """排队中的直接取消，分析中的先停掉，结束的从列表移走。"""
+    with jobs_lock:
+        job = jobs[job_id]
+        job["cancelled"] = True
+        running = job["state"] == "running"
+        if not running:
+            del jobs[job_id]
+    if running:
+        stop_analysis()
+    elif Path(job["video"]).is_relative_to(UPLOADS):
+        shutil.rmtree(Path(job["video"]).parent, ignore_errors=True)
+
+
 def analysis_command():
     if FROZEN:
         return [str(Path(sys.executable).with_name("fly_worker.exe"))]
@@ -97,6 +150,8 @@ def worker():
     while True:
         job_id = work.get()
         with jobs_lock:
+            if job_id not in jobs:
+                continue
             job = dict(jobs[job_id])
         video = Path(job["video"])
         output = next_output(video, RUNS / job["group"])
@@ -117,6 +172,15 @@ def worker():
                 update_job(job_id, done_frames=int(found[1]), crossed=int(found[2]))
         process.wait()
         text = "\n".join(tail)
+        with jobs_lock:
+            cancelled = jobs[job_id].get("cancelled")
+            if cancelled:
+                del jobs[job_id]
+        if cancelled:
+            shutil.rmtree(output, ignore_errors=True)
+            if video.is_relative_to(UPLOADS):
+                shutil.rmtree(video.parent, ignore_errors=True)
+            continue
         if process.returncode == 0:
             update_job(job_id, state="done", done_frames=job["frames"], run=output.relative_to(OUTPUTS).as_posix())
             if video.is_relative_to(UPLOADS):
@@ -152,20 +216,125 @@ def overview():
         report = json.loads(path.read_text(encoding="utf-8"))
         run = path.parent.relative_to(OUTPUTS).as_posix()
         results = report["results"]
-        videos.append({"group": group, "stem": stem, "run": run, "tubes": len(results),
-                       "crossed": sum(item["outcome"] == "first_crossing_recorded" for item in results),
-                       "review": sum(item["speed_quality"] == "review" for item in results)})
+        crossed = [item for item in results if item["outcome"] == "first_crossing_recorded"]
+        videos.append({"group": group, "stem": stem, "run": run, "tubes": len(results), "crossed": len(crossed),
+                       "review": sum(item["speed_quality"] == "review" for item in results),
+                       "crossed_review": sum(item["speed_quality"] == "review" for item in crossed),
+                       "mean_speed": mean(item["candidate_speed_cm_s"] for item in crossed),
+                       "mean_net_speed": mean(item["net_climb_speed_cm_s"] for item in crossed),
+                       "editable": path.is_relative_to(RUNS)})
         rows += [{"group": group, "stem": stem, "run": run, "tube": item["tube_id"], "outcome": item["outcome"],
                   "quality": item["speed_quality"], "crossing": item["first_crossing_time_sec"],
                   "speed": item["candidate_speed_cm_s"], "net_speed": item["net_climb_speed_cm_s"]} for item in results]
     return {"videos": videos, "tubes": rows}
 
 
+def mean(values):
+    """每段视频的平均速度只算过线的管；没过线的管没有速度，不计入。"""
+    values = [value for value in values if value is not None]
+    return sum(values) / len(values) if values else None
+
+
+SUMMARY_COLUMNS = ["分组", "视频", "试管数", "过线管数", "过线管中需复核", "平均5.5cm速度(cm/s)", "平均净爬升速度(cm/s)"]
+
+
+def summary_csv():
+    lines = [SUMMARY_COLUMNS]
+    for video in overview()["videos"]:
+        lines.append([video["group"], video["stem"], video["tubes"], video["crossed"], video["crossed_review"],
+                      *("" if value is None else f"{value:.3f}" for value in (video["mean_speed"], video["mean_net_speed"]))])
+    return "".join(",".join(f'"{cell}"' if "," in str(cell) else str(cell) for cell in line) + "\r\n" for line in lines)
+
+
 def result_dir(run):
     path = (OUTPUTS / run).resolve()
-    if not path.is_relative_to(OUTPUTS) or not (path / "single_fly_report.json").is_file():
+    if not path.is_relative_to(OUTPUTS.resolve()) or not (path / "single_fly_report.json").is_file():
         raise ValueError("结果不存在。")
     return path
+
+
+def send_to_recycle_bin(path):
+    """Windows 上放进回收站，误删还能还原。"""
+    if os.name != "nt":
+        shutil.rmtree(path)
+        return
+    import ctypes
+    from ctypes import wintypes
+
+    class Operation(ctypes.Structure):
+        _fields_ = [("hwnd", wintypes.HWND), ("wFunc", wintypes.UINT), ("pFrom", wintypes.LPCWSTR),
+                    ("pTo", wintypes.LPCWSTR), ("fFlags", ctypes.c_ushort), ("fAnyOperationsAborted", wintypes.BOOL),
+                    ("hNameMappings", ctypes.c_void_p), ("lpszProgressTitle", wintypes.LPCWSTR)]
+
+    # FO_DELETE；静默、不弹确认、允许撤销（进回收站）、不弹错误框。
+    operation = Operation(None, 3, str(Path(path).resolve()) + "\0", None, 0x4 | 0x10 | 0x40 | 0x400, False, None, None)
+    code = ctypes.windll.shell32.SHFileOperationW(ctypes.byref(operation))
+    if code or operation.fAnyOperationsAborted:
+        raise OSError(f"放进回收站失败（代码 {code}），文件可能正在被使用。")
+
+
+def video_runs(run):
+    """同一视频的全部运行目录（含重跑）。只允许管理界面自己分析出的结果。"""
+    folder = result_dir(run)
+    if not folder.is_relative_to(RUNS.resolve()) or folder.parent.parent != RUNS.resolve():
+        raise ValueError("只能修改界面里分析的结果。")
+    stem = REPEAT_SUFFIX.sub("", folder.name)
+    return stem, [item for item in folder.parent.iterdir() if item.is_dir() and REPEAT_SUFFIX.sub("", item.name) == stem]
+
+
+def remove_if_empty(folder):
+    try:
+        folder.rmdir()
+    except OSError:
+        pass
+
+
+def delete_video(run):
+    _, folders = video_runs(run)
+    for folder in folders:
+        send_to_recycle_bin(folder)
+    remove_if_empty(folders[0].parent)
+
+
+def group_folder(group):
+    folder = RUNS / clean_group(group)
+    if not folder.is_dir():
+        raise ValueError("只能修改界面里分析的分组。")
+    return folder
+
+
+def group_videos(group):
+    """分组里每段视频取一个运行目录作代表。"""
+    seen = {}
+    for folder in sorted(group_folder(group).iterdir()):
+        if (folder / "single_fly_report.json").is_file():
+            seen.setdefault(REPEAT_SUFFIX.sub("", folder.name), folder.relative_to(OUTPUTS).as_posix())
+    return list(seen.values())
+
+
+def move_videos(runs, group):
+    """先全部检查再移动，避免只移走一半。"""
+    target = RUNS / clean_group(group)
+    plans = [video_runs(run) for run in runs]
+    existing = {REPEAT_SUFFIX.sub("", item.name) for item in target.iterdir()} if target.is_dir() else set()
+    for stem, folders in plans:
+        if folders[0].parent != target.resolve() and stem in existing:
+            raise ValueError(f"“{target.name}”里已经有 {stem} 的结果，请先删掉其中一份。")
+    target.mkdir(parents=True, exist_ok=True)
+    moved = []
+    for stem, folders in plans:
+        source = folders[0].parent
+        if source != target.resolve():
+            for folder in folders:
+                folder.rename(target / folder.name)
+            remove_if_empty(source)
+        moved.append(f"app_runs/{target.name}/{Path(runs[len(moved)]).name}")
+    return moved
+
+
+def delete_group(group):
+    for run in group_videos(group):
+        delete_video(run)
 
 
 def run_detail(run):
@@ -280,6 +449,17 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if url.path == "/":
                 self.send_bytes(PAGE.read_bytes(), "text/html; charset=utf-8")
+            elif url.path == "/api/info":
+                self.send_json({"version": VERSION})
+            elif url.path == "/api/video-summary.csv":
+                body = summary_csv().encode("utf-8-sig")
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", "text/csv; charset=utf-8")
+                self.send_header("Content-Disposition", "attachment; filename=video_summary.csv; filename*=UTF-8''"
+                                 "%E8%A7%86%E9%A2%91%E5%B9%B3%E5%9D%87%E9%80%9F%E5%BA%A6.csv")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
             elif url.path == "/api/jobs":
                 self.send_json(job_list())
             elif url.path == "/api/overview":
@@ -310,6 +490,21 @@ class Handler(BaseHTTPRequestHandler):
             if url.path == "/api/reveal":
                 os.startfile(result_dir(data["run"]))
                 self.send_json({"ok": True})
+            elif url.path == "/api/add":
+                self.send_json(add_paths(data["paths"], data.get("group", "")))
+            elif url.path == "/api/dismiss":
+                dismiss_job(data["job"])
+                self.send_json({"ok": True})
+            elif url.path == "/api/delete":
+                delete_video(data["run"])
+                self.send_json({"ok": True})
+            elif url.path == "/api/move":
+                self.send_json({"runs": move_videos([data["run"]], data["group"])})
+            elif url.path == "/api/rename-group":
+                self.send_json({"runs": move_videos(group_videos(data["group"]), data["name"])})
+            elif url.path == "/api/delete-group":
+                delete_group(data["group"])
+                self.send_json({"ok": True})
             elif url.path == "/api/check-click":
                 self.send_json({"problem": click_problem([tuple(p) for p in data["points"]], tuple(data["point"]), tuple(data["size"]))})
             elif url.path == "/api/calibrate":
@@ -325,7 +520,7 @@ class Handler(BaseHTTPRequestHandler):
         name = Path(query["name"].replace("\\", "/")).name
         if Path(name).suffix.lower() != ".mp4":
             raise ValueError(f"目前只支持 MP4：{name}")
-        group = Path(query.get("group", "").replace("\\", "/").strip()).name or "未分组"
+        group = clean_group(Path(query.get("group", "").replace("\\", "/").strip()).name)
         folder = UPLOADS / uuid.uuid4().hex[:10]
         folder.mkdir(parents=True)
         path = folder / name
